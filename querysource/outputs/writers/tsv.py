@@ -2,6 +2,7 @@ import csv
 from io import StringIO
 from aiocsv import AsyncDictWriter
 from aiohttp import web
+from ...utils.dataframes import df_to_records, is_dataframe
 from .abstract import AbstractWriter
 
 
@@ -35,12 +36,10 @@ class TSVWriter(AbstractWriter):
     async def get_response(self) -> web.StreamResponse:
         try:
             await self.get_buffer()
-            if hasattr(self.data, 'to_dict') and hasattr(self.data, 'columns'):
-                # pandas-backed providers (bigquery, deltatbl, iceberg) hand a
-                # DataFrame to the writer; iterating it yields column names, not
-                # rows. Normalise to records (NaN/NaT -> None) before writing.
-                df = self.data
-                self.data = df.astype(object).where(df.notna(), None).to_dict(orient='records')
+            if is_dataframe(self.data):
+                # Defence in depth: the 'iter' output format already normalises
+                # DataFrames, but a writer can also be handed one directly.
+                self.data = df_to_records(self.data)
             tmp = TmpFile()
             async with tmp.open_buffer() as afp:
                 writer = AsyncDictWriter(afp, self.columns, restval="NULL", quoting=csv.QUOTE_NONE, delimiter='\t', skipinitialspace=True)

@@ -6,6 +6,7 @@ from ...conf import (
     CSV_DEFAULT_DELIMITER,
     CSV_DEFAULT_QUOTING
 )
+from ...utils.dataframes import df_to_records, is_dataframe
 from .abstract import AbstractWriter
 
 
@@ -39,12 +40,10 @@ class CSVWriter(AbstractWriter):
     async def get_response(self) -> web.StreamResponse:
         try:
             await self.get_buffer()
-            if hasattr(self.data, 'to_dict') and hasattr(self.data, 'columns'):
-                # pandas-backed providers (bigquery, deltatbl, iceberg) hand a
-                # DataFrame to the writer; iterating it yields column names, not
-                # rows. Normalise to records (NaN/NaT -> None) before writing.
-                df = self.data
-                self.data = df.astype(object).where(df.notna(), None).to_dict(orient='records')
+            if is_dataframe(self.data):
+                # Defence in depth: the 'iter' output format already normalises
+                # DataFrames, but a writer can also be handed one directly.
+                self.data = df_to_records(self.data)
             if 'delimiter' in self.kwargs:
                 delimiter = self.kwargs['delimiter']
             else:
