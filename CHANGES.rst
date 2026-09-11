@@ -21,6 +21,17 @@ report writers (``slug:html``, ``slug:pdf``) were broken by the same cause.
   callers handing a frame straight to a writer.
 - ``TmpFile.__aexit__`` no longer suppresses exceptions, so writer errors
   surface as HTTP 500 instead of a silent, truncated 200.
+Drop invalid ``Content-Range`` header from streamed responses
+------------------------------------------------------------
+
+``AbstractWriter.stream_response()`` advertised
+``Content-Range: bytes 0-16384/<content-length>`` on ``200`` responses that
+carry the **full** body. The header is only defined for ``206``/``416``
+(RFC 9110 s14.4), the range is off by one (inclusive positions, so
+``0-16384`` spans 16385 bytes) and for any body under 16385 bytes the
+last-byte-pos exceeded the complete length, making the field value invalid.
+QuerySource does not honour request ``Range`` headers at all, so nothing
+relied on it. ``Content-Length`` is unchanged.
 
 FEAT-090 — Query Slug list pagination
 -------------------------------------
