@@ -1,6 +1,17 @@
 Unreleased
 ==========
 
+CSV/TSV writers — DataFrame results and swallowed errors
+--------------------------------------------------------
+
+``CSVWriter`` and ``TSVWriter`` now serialise ``pandas.DataFrame`` results
+(``bigquery``, ``deltatbl``, ``iceberg`` providers) row by row. Iterating a
+DataFrame yielded column names, ``aiocsv`` raised ``AttributeError`` and the
+writers' ``TmpFile.__aexit__`` returned a truthy value, suppressing the
+exception: ``slug:csv`` answered HTTP 200 with only the header line.
+``__aexit__`` no longer suppresses exceptions and DataFrames are converted to
+records (``NaN``/``NaT`` -> ``None``) before writing.
+
 FEAT-090 — Query Slug list pagination
 -------------------------------------
 

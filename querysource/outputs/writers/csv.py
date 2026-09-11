@@ -22,7 +22,10 @@ class TmpFile:
 
     async def __aexit__(self, exc_type, exc, tb):
         self.output.seek(0)
-        return self
+        # A truthy return from __aexit__ suppresses the in-flight exception:
+        # any error raised while writing rows was silently dropped and the
+        # response went out as HTTP 200 with only the header line.
+        return False
 
     def get(self):
         return self.output.getvalue()
@@ -36,6 +39,12 @@ class CSVWriter(AbstractWriter):
     async def get_response(self) -> web.StreamResponse:
         try:
             await self.get_buffer()
+            if hasattr(self.data, 'to_dict') and hasattr(self.data, 'columns'):
+                # pandas-backed providers (bigquery, deltatbl, iceberg) hand a
+                # DataFrame to the writer; iterating it yields column names, not
+                # rows. Normalise to records (NaN/NaT -> None) before writing.
+                df = self.data
+                self.data = df.astype(object).where(df.notna(), None).to_dict(orient='records')
             if 'delimiter' in self.kwargs:
                 delimiter = self.kwargs['delimiter']
             else:
