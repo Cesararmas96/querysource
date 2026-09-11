@@ -157,10 +157,9 @@ class AbstractWriter(ABC):
         content_length = len(data)
         response.content_length = content_length
         if self.response_type == 'stream':  # an stream response:
+            # NOTE: no Content-Range header here: the full body is sent with a
+            # 200 status and range requests are not supported.
             chunk_size = 16384
-            response.headers[
-                "Content-Range"
-            ] = f"bytes 0-{chunk_size}/{content_length}"
             try:
                 i = 0
                 await response.prepare(self.request)
